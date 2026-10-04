@@ -75,6 +75,14 @@ export const AssignDocumentModal: React.FC<AssignDocumentModalProps> = ({
         body: JSON.stringify({
           documentId: document.id,
           userIds: selectedUserIds,
+          assignedUsers: selectedUserIds.map((uid) => {
+            const found = standardUsers.find((u) => u.id === uid);
+            return {
+              userId: uid,
+              userName: found?.name || 'Usuario',
+              userEmail: found?.email || '',
+            };
+          }),
           permissionLevel,
           dueDate: new Date(dueDate).toISOString(),
         }),

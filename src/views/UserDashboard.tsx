@@ -78,7 +78,11 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
     if (!token) return;
     setLoadingDocs(true);
     try {
-      const res = await fetch('/api/my-documents', {
+      const qParams = new URLSearchParams();
+      if (user?.id) qParams.append('userId', user.id);
+      if (user?.email) qParams.append('userEmail', user.email);
+
+      const res = await fetch(`/api/my-documents?${qParams.toString()}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (res.ok) {
@@ -114,7 +118,7 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
   useEffect(() => {
     if (activeTab === 'docs') fetchMyDocuments();
     if (activeTab === 'history') fetchMyHistory();
-  }, [activeTab]);
+  }, [activeTab, user?.id, user?.email]);
 
   useEffect(() => {
     if (!token || !user) return;
@@ -122,7 +126,7 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
       fetchMyDocuments();
     });
     return () => unsub();
-  }, [token, user?.id]);
+  }, [token, user?.id, user?.email]);
 
   // Update status (e.g. in_progress, submitted)
   const handleUpdateStatus = async (documentId: string, newStatus: 'in_progress' | 'submitted') => {

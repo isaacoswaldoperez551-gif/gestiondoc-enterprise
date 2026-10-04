@@ -1280,10 +1280,11 @@ export async function handleMockRequest(url: string, init?: RequestInit): Promis
     for (const [recipId, recipient] of recipientsMap.entries()) {
       const isAuthor =
         recipId === newComment.userId ||
-        (recipient.email && recipient.email.toLowerCase() === newComment.userEmail.toLowerCase());
+        (recipient.email && newComment.userEmail && recipient.email.toLowerCase() === newComment.userEmail.toLowerCase());
 
-      if (!isAuthor && recipient.email) {
-        const isRecipientAdmin = db.users.find((u) => u.id === recipId)?.role === 'admin';
+      if (!isAuthor) {
+        const isRecipientAdmin = recipId === 'usr_admin_isaac' || db.users.find((u) => u.id === recipId)?.role === 'admin';
+        const recipEmail = recipient.email || `${recipId}@gestiondoc.com`;
         const title = isRecipientAdmin
           ? `💬 Mensaje de ${newComment.userName} en "${docTitle}"`
           : `💬 Nuevo mensaje en tu tarea: "${docTitle}"`;
@@ -1294,7 +1295,7 @@ export async function handleMockRequest(url: string, init?: RequestInit): Promis
         await pushNotificationAndEmail(
           db,
           recipient.id,
-          recipient.email,
+          recipEmail,
           title,
           message,
           'comment',
@@ -1375,29 +1376,57 @@ export async function handleMockRequest(url: string, init?: RequestInit): Promis
     const docItem = db.documents.find((d) => d.id === body.documentId);
     const docTitle = docItem ? docItem.title : 'Documento';
 
-    // Support both an array of userIds (e.g. 2 people on the same job) or single userId
-    const targetUserIds: string[] =
-      Array.isArray(body.userIds) && body.userIds.length > 0
-        ? body.userIds
-        : body.userId
-        ? [body.userId]
-        : [];
+    // Support body.assignedUsers, array of userIds (e.g. 2 people on the same job) or single userId
+    const targetUserEntries: Array<{ userId: string; userName: string; userEmail: string }> = [];
 
-    if (targetUserIds.length === 0) {
+    if (Array.isArray(body.assignedUsers) && body.assignedUsers.length > 0) {
+      body.assignedUsers.forEach((u: any) => {
+        targetUserEntries.push({
+          userId: u.userId || u.id,
+          userName: u.userName || u.name || 'Usuario',
+          userEmail: u.userEmail || u.email || '',
+        });
+      });
+    } else {
+      const uids: string[] =
+        Array.isArray(body.userIds) && body.userIds.length > 0
+          ? body.userIds
+          : body.userId
+          ? [body.userId]
+          : [];
+
+      for (const uid of uids) {
+        const targetUser = db.users.find((u) => u.id === uid);
+        targetUserEntries.push({
+          userId: uid,
+          userName: targetUser?.name || body.userName || 'Usuario',
+          userEmail: targetUser?.email || body.userEmail || '',
+        });
+      }
+    }
+
+    if (targetUserEntries.length === 0) {
       return errorResponse('Debe seleccionar al menos un usuario para la asignación.', 400);
     }
 
     const createdAssignments: AssignmentItem[] = [];
 
-    for (const uid of targetUserIds) {
-      const targetUser = db.users.find((u) => u.id === uid);
-      const uName = targetUser?.name || body.userName || 'Usuario';
-      const uEmail = targetUser?.email || body.userEmail || '';
+    for (const uEntry of targetUserEntries) {
+      let uName = uEntry.userName;
+      let uEmail = uEntry.userEmail;
+
+      if (!uEmail || uName === 'Usuario') {
+        const uFromDb = db.users.find((u) => u.id === uEntry.userId);
+        if (uFromDb) {
+          uName = uFromDb.name || uName;
+          uEmail = uFromDb.email || uEmail;
+        }
+      }
 
       const newAsg: AssignmentItem = {
         id: `asg_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
         documentId: body.documentId,
-        userId: uid,
+        userId: uEntry.userId,
         userName: uName,
         userEmail: uEmail,
         permissionLevel: body.permissionLevel || 'view',
@@ -1427,25 +1456,24 @@ export async function handleMockRequest(url: string, init?: RequestInit): Promis
         fechaCreacion: newAsg.createdAt,
       });
 
-      // Send individual notification and real email to this assigned user
-      if (newAsg.userEmail) {
-        await pushNotificationAndEmail(
-          db,
-          newAsg.userId,
-          newAsg.userEmail,
-          `📄 Nuevo trabajo asignado: "${docTitle}"`,
-          `Se te ha asignado el documento "${docTitle}" para revisión y trabajo. Fecha límite: ${new Date(
-            newAsg.dueDate
-          ).toLocaleDateString('es-ES')}.`,
-          'assignment',
-          newAsg.documentId,
-          docTitle,
-          newAsg.id,
-          db.currentUser?.id,
-          db.currentUser?.name,
-          'user'
-        );
-      }
+      // Send individual notification and real email to this assigned user (ALWAYS triggered)
+      const targetNotifEmail = newAsg.userEmail || `${newAsg.userId}@gestiondoc.com`;
+      await pushNotificationAndEmail(
+        db,
+        newAsg.userId,
+        targetNotifEmail,
+        `📄 Nuevo trabajo asignado: "${docTitle}"`,
+        `Se te ha asignado el documento "${docTitle}" para revisión y trabajo. Fecha límite: ${new Date(
+          newAsg.dueDate
+        ).toLocaleDateString('es-ES')}.`,
+        'assignment',
+        newAsg.documentId,
+        docTitle,
+        newAsg.id,
+        db.currentUser?.id,
+        db.currentUser?.name,
+        'user'
+      );
 
       createdAssignments.push(newAsg);
     }
@@ -1484,12 +1512,11 @@ export async function handleMockRequest(url: string, init?: RequestInit): Promis
           createdAt: data.createdAt || new Date().toISOString(),
           updatedAt: data.updatedAt || new Date().toISOString(),
         };
-        const exists = db.assignments.find((a) => a.id === asgItem.id);
-        if (!exists) {
+        const existsIdx = db.assignments.findIndex((a) => a.id === asgItem.id);
+        if (existsIdx === -1) {
           db.assignments.push(asgItem);
         } else {
-          exists.status = asgItem.status;
-          exists.lastWorkedAt = asgItem.lastWorkedAt;
+          db.assignments[existsIdx] = { ...db.assignments[existsIdx], ...asgItem };
         }
       });
 
@@ -1550,13 +1577,15 @@ export async function handleMockRequest(url: string, init?: RequestInit): Promis
       console.warn('Error syncing my-documents from Firestore:', e);
     }
 
-    const currentUserId = db.currentUser?.id;
-    const currentUserEmail = db.currentUser?.email?.toLowerCase();
+    const qUserId = searchParams.get('userId') || db.currentUser?.id || '';
+    const qUserEmail = (searchParams.get('userEmail') || db.currentUser?.email || '').toLowerCase().trim();
 
     const userAssignments = db.assignments.filter((asg) => {
+      const asgUid = asg.userId || (asg as any).usuarioId || '';
+      const asgEmail = (asg.userEmail || (asg as any).correoUsuario || '').toLowerCase().trim();
       return (
-        (currentUserId && asg.userId === currentUserId) ||
-        (currentUserEmail && asg.userEmail && asg.userEmail.toLowerCase() === currentUserEmail)
+        (qUserId && asgUid === qUserId) ||
+        (qUserEmail && asgEmail && asgEmail === qUserEmail)
       );
     });
 
