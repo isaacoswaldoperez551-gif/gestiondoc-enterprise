@@ -14,7 +14,7 @@ import {
   DocumentFileType,
 } from '../types';
 import { seedFirestoreDatabaseIfEmpty, syncEntityToFirestore, deleteEntityFromFirestore } from '../services/firestoreService';
-import { collection, getDocs, query, where } from 'firebase/firestore';
+import { collection, getDocs, query, where, deleteDoc, doc, setDoc } from 'firebase/firestore';
 import { db as firestoreDb } from '../firebase';
 
 const fileStorageMap = new Map<string, ArrayBuffer>();
@@ -1823,6 +1823,27 @@ export async function handleMockRequest(url: string, init?: RequestInit): Promis
       },
     }));
     return jsonResponse({ outbox });
+  }
+
+  if (path === '/api/notifications/email-outbox' && method === 'DELETE') {
+    try {
+      const snap = await getDocs(collection(firestoreDb, 'correos'));
+      for (const d of snap.docs) {
+        await deleteDoc(doc(firestoreDb, 'correos', d.id));
+      }
+      // Re-create a persistent root document so the collection 'correos' never disappears from the Firebase Console!
+      await setDoc(doc(firestoreDb, 'correos', '_registro_base'), {
+        id: '_registro_base',
+        asunto: 'Bandeja de correos inicializada (Vacía)',
+        para: 'sistema@gestiondoc.empresa.com',
+        fecha: new Date().toISOString(),
+        leido: true,
+        descripcion: 'Registro permanente para mantener el apartado correos activo en Firestore sin acumular correos viejos',
+      });
+    } catch (e) {
+      console.warn('Error clearing correos collection:', e);
+    }
+    return jsonResponse({ success: true, message: 'Todos los correos han sido eliminados de Firestore conservando el apartado.' });
   }
 
   if (path.match(/^\/api\/notifications\/[^/]+\/read$/) && method === 'PUT') {

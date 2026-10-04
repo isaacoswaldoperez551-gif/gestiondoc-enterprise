@@ -18,6 +18,7 @@ import {
   ShieldAlert,
   UserCheck,
   Users,
+  Trash2,
 } from 'lucide-react';
 
 interface ActiveUser {
@@ -48,6 +49,9 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
   const [showOutbox, setShowOutbox] = useState(false);
   const [outboxEmails, setOutboxEmails] = useState<NotificationItem[]>([]);
   const [selectedEmail, setSelectedEmail] = useState<NotificationItem | null>(null);
+  const [clearingOutbox, setClearingOutbox] = useState(false);
+  const [confirmClearOutbox, setConfirmClearOutbox] = useState(false);
+  const [clearMessage, setClearMessage] = useState<string | null>(null);
   const [toastNotif, setToastNotif] = useState<{ id: string; title: string; message: string } | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const initializedRef = useRef(false);
@@ -118,6 +122,28 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
       }
     } catch (err) {
       console.error('Error fetching email outbox:', err);
+    }
+  };
+
+  const handleClearOutbox = async () => {
+    setClearingOutbox(true);
+    setClearMessage(null);
+    try {
+      const res = await fetch('/api/notifications/email-outbox', {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${authToken}` },
+      });
+      if (res.ok) {
+        setOutboxEmails([]);
+        setSelectedEmail(null);
+        setConfirmClearOutbox(false);
+        setClearMessage('✓ Todos los correos han sido eliminados de Firestore. El apartado correos se mantiene activo.');
+        setTimeout(() => setClearMessage(null), 5000);
+      }
+    } catch (err) {
+      console.error('Error clearing outbox:', err);
+    } finally {
+      setClearingOutbox(false);
     }
   };
 
@@ -658,7 +684,46 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
             </div>
 
             {/* Modal Footer */}
-            <div className="px-6 py-3 border-t border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 flex justify-end">
+            <div className="px-6 py-3 border-t border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 flex flex-wrap items-center justify-between gap-3">
+              <div className="flex items-center gap-2">
+                {!confirmClearOutbox ? (
+                  <button
+                    type="button"
+                    onClick={() => setConfirmClearOutbox(true)}
+                    disabled={clearingOutbox || outboxEmails.length === 0}
+                    className="px-3 py-1.5 bg-red-50 dark:bg-red-950/40 hover:bg-red-100 dark:hover:bg-red-900/60 text-red-700 dark:text-red-300 text-xs font-medium rounded-lg border border-red-200 dark:border-red-900/50 flex items-center gap-1.5 transition disabled:opacity-40 cursor-pointer"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    Vaciar Todos los Correos (Conservar Apartado)
+                  </button>
+                ) : (
+                  <div className="flex items-center gap-2 bg-red-100 dark:bg-red-950/60 p-1.5 rounded-lg border border-red-300 dark:border-red-800">
+                    <span className="text-xs text-red-800 dark:text-red-200 font-medium">
+                      ¿Confirmas borrar todos los correos de Firestore?
+                    </span>
+                    <button
+                      type="button"
+                      onClick={handleClearOutbox}
+                      disabled={clearingOutbox}
+                      className="px-2.5 py-1 bg-red-600 text-white text-xs font-semibold rounded hover:bg-red-700 transition cursor-pointer"
+                    >
+                      {clearingOutbox ? 'Borrando...' : 'Sí, vaciar'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setConfirmClearOutbox(false)}
+                      className="px-2 py-1 text-xs text-neutral-600 dark:text-neutral-300 hover:underline cursor-pointer"
+                    >
+                      Cancelar
+                    </button>
+                  </div>
+                )}
+                {clearMessage && (
+                  <span className="text-xs text-emerald-600 dark:text-emerald-400 font-medium animate-in fade-in">
+                    {clearMessage}
+                  </span>
+                )}
+              </div>
               <button
                 onClick={() => setShowOutbox(false)}
                 className="px-4 py-2 bg-neutral-200 dark:bg-neutral-800 hover:bg-neutral-300 dark:hover:bg-neutral-700 text-neutral-800 dark:text-neutral-200 text-xs font-semibold rounded-xl transition cursor-pointer"
