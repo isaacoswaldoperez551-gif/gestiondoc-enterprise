@@ -1,0 +1,6 @@
+{
+  "name": "GestiónDoc Enterprise",
+  "description": "Plataforma integral de gestión documental empresarial con roles, asignación de permisos, control de versiones, visores integrados y auditoría.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

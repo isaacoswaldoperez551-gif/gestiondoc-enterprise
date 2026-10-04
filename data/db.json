@@ -1,0 +1,240 @@
+{
+  "users": [
+    {
+      "id": "usr_admin_isaac",
+      "name": "Isaac Perez",
+      "email": "isaacoswaldoperez551@gmail.com",
+      "passwordHash": "$2b$10$.DM1n5fvDCPBgYjUyVVy9u3gNz8eb5c4Ju6W8RZG6MwZC8LlUfBKu",
+      "role": "admin",
+      "status": "active",
+      "mustChangePassword": false,
+      "failedAttempts": 0,
+      "lockedUntil": null,
+      "totpSecret": null,
+      "totpEnabled": false,
+      "createdAt": "2026-10-04T16:48:35.725Z",
+      "updatedAt": "2026-10-04T16:48:35.725Z",
+      "department": "Administración General / Sistemas"
+    }
+  ],
+  "loginHistory": [],
+  "auditLogs": [
+    {
+      "id": "aud_init_01",
+      "userId": "usr_admin_01",
+      "userEmail": "admin@empresa.com",
+      "action": "system_initialized",
+      "resourceType": "system",
+      "ipAddress": "127.0.0.1",
+      "userAgent": "System Installer",
+      "details": {
+        "message": "Sistema de Gestión Documental inicializado con documentos y asignaciones de prueba"
+      },
+      "timestamp": "2026-10-04T16:48:35.725Z"
+    }
+  ],
+  "folders": [
+    {
+      "id": "fld_01",
+      "name": "Contratos Legales",
+      "parentId": null,
+      "createdBy": "usr_admin_01",
+      "createdAt": "2026-10-04T16:48:35.725Z"
+    },
+    {
+      "id": "fld_02",
+      "name": "Balances & Finanzas",
+      "parentId": null,
+      "createdBy": "usr_admin_01",
+      "createdAt": "2026-10-04T16:48:35.725Z"
+    },
+    {
+      "id": "fld_03",
+      "name": "Recursos Humanos & Políticas",
+      "parentId": null,
+      "createdBy": "usr_admin_01",
+      "createdAt": "2026-10-04T16:48:35.725Z"
+    }
+  ],
+  "tags": [
+    {
+      "id": "tag_01",
+      "name": "Urgente",
+      "color": "#DC2626"
+    },
+    {
+      "id": "tag_02",
+      "name": "Auditoría 2026",
+      "color": "#2563EB"
+    },
+    {
+      "id": "tag_03",
+      "name": "Confidencial",
+      "color": "#7C3AED"
+    },
+    {
+      "id": "tag_04",
+      "name": "Revisión Pendiente",
+      "color": "#D97706"
+    }
+  ],
+  "documents": [
+    {
+      "id": "doc_01",
+      "title": "Contrato Marco de Servicios Tecnológicos 2026",
+      "fileType": "pdf",
+      "folderId": "fld_01",
+      "tagIds": [
+        "tag_01",
+        "tag_03"
+      ],
+      "currentVersionId": "ver_01",
+      "isTemplate": false,
+      "isDeleted": false,
+      "deletedAt": null,
+      "deletedBy": null,
+      "createdBy": "usr_admin_01",
+      "creatorName": "Administrador Principal",
+      "createdAt": "2026-10-04T16:48:35.725Z",
+      "updatedAt": "2026-10-04T16:48:35.725Z"
+    },
+    {
+      "id": "doc_02",
+      "title": "Estados Financieros y Balance General Q3",
+      "fileType": "xlsx",
+      "folderId": "fld_02",
+      "tagIds": [
+        "tag_02",
+        "tag_04"
+      ],
+      "currentVersionId": "ver_02",
+      "isTemplate": false,
+      "isDeleted": false,
+      "deletedAt": null,
+      "deletedBy": null,
+      "createdBy": "usr_admin_01",
+      "creatorName": "Administrador Principal",
+      "createdAt": "2026-10-04T16:48:35.725Z",
+      "updatedAt": "2026-10-04T16:48:35.725Z"
+    },
+    {
+      "id": "doc_03",
+      "title": "Manual de Políticas de Seguridad de la Información",
+      "fileType": "docx",
+      "folderId": "fld_03",
+      "tagIds": [
+        "tag_03"
+      ],
+      "currentVersionId": "ver_03",
+      "isTemplate": false,
+      "isDeleted": false,
+      "deletedAt": null,
+      "deletedBy": null,
+      "createdBy": "usr_admin_01",
+      "creatorName": "Administrador Principal",
+      "createdAt": "2026-10-04T16:48:35.725Z",
+      "updatedAt": "2026-10-04T16:48:35.725Z"
+    }
+  ],
+  "documentVersions": [
+    {
+      "id": "ver_01",
+      "documentId": "doc_01",
+      "versionNumber": 1,
+      "storagePath": "/app/applet/storage/documents/doc_sample_contrato.pdf",
+      "originalFilename": "contrato_servicios_tecnologicos_v1.pdf",
+      "fileSizeBytes": 420000,
+      "mimeType": "application/pdf",
+      "changeSummary": "Versión inicial firmada por gerencia general",
+      "uploadedBy": "usr_admin_01",
+      "uploaderName": "Administrador Principal",
+      "createdAt": "2026-10-04T16:48:35.725Z"
+    },
+    {
+      "id": "ver_02",
+      "documentId": "doc_02",
+      "versionNumber": 1,
+      "storagePath": "/app/applet/storage/documents/doc_sample_balance.xlsx",
+      "originalFilename": "balance_general_q3_borrador.xlsx",
+      "fileSizeBytes": 865000,
+      "mimeType": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      "changeSummary": "Plantilla de balance contable consolidado",
+      "uploadedBy": "usr_admin_01",
+      "uploaderName": "Administrador Principal",
+      "createdAt": "2026-10-04T16:48:35.725Z"
+    },
+    {
+      "id": "ver_03",
+      "documentId": "doc_03",
+      "versionNumber": 1,
+      "storagePath": "/app/applet/storage/documents/doc_sample_politica.docx",
+      "originalFilename": "politicas_seguridad_info_2026.docx",
+      "fileSizeBytes": 245000,
+      "mimeType": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      "changeSummary": "Normativa corporativa de control documental",
+      "uploadedBy": "usr_admin_01",
+      "uploaderName": "Administrador Principal",
+      "createdAt": "2026-10-04T16:48:35.725Z"
+    }
+  ],
+  "assignments": [
+    {
+      "id": "asg_01",
+      "documentId": "doc_01",
+      "userId": "usr_user_01",
+      "userName": "Carlos Mendoza",
+      "userEmail": "carlos.mendoza@empresa.com",
+      "permissionLevel": "download",
+      "status": "in_progress",
+      "dueDate": "2026-10-09T16:48:35.725Z",
+      "firstOpenedAt": "2026-10-04T16:48:35.725Z",
+      "lastWorkedAt": "2026-10-04T16:48:35.725Z",
+      "reviewComment": null,
+      "reviewedBy": null,
+      "reviewedAt": null,
+      "assignedBy": "usr_admin_01",
+      "createdAt": "2026-10-04T16:48:35.725Z",
+      "updatedAt": "2026-10-04T16:48:35.725Z"
+    },
+    {
+      "id": "asg_02",
+      "documentId": "doc_02",
+      "userId": "usr_user_01",
+      "userName": "Carlos Mendoza",
+      "userEmail": "carlos.mendoza@empresa.com",
+      "permissionLevel": "upload_version",
+      "status": "pending",
+      "dueDate": "2026-10-06T16:48:35.725Z",
+      "firstOpenedAt": null,
+      "lastWorkedAt": null,
+      "reviewComment": null,
+      "reviewedBy": null,
+      "reviewedAt": null,
+      "assignedBy": "usr_admin_01",
+      "createdAt": "2026-10-04T16:48:35.725Z",
+      "updatedAt": "2026-10-04T16:48:35.725Z"
+    },
+    {
+      "id": "asg_03",
+      "documentId": "doc_03",
+      "userId": "usr_user_02",
+      "userName": "Lucía Vega",
+      "userEmail": "lucia.vega@empresa.com",
+      "permissionLevel": "view",
+      "status": "approved",
+      "dueDate": "2026-10-11T16:48:35.725Z",
+      "firstOpenedAt": "2026-10-04T16:48:35.725Z",
+      "lastWorkedAt": "2026-10-04T16:48:35.725Z",
+      "reviewComment": "Aprobado conforme a las regulaciones de auditoría.",
+      "reviewedBy": "usr_admin_01",
+      "reviewedAt": "2026-10-04T16:48:35.725Z",
+      "assignedBy": "usr_admin_01",
+      "createdAt": "2026-10-04T16:48:35.725Z",
+      "updatedAt": "2026-10-04T16:48:35.725Z"
+    }
+  ],
+  "comments": [],
+  "notifications": [],
+  "groups": [],
+  "groupMemberships": []
+}
