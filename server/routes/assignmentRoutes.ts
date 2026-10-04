@@ -38,10 +38,18 @@ router.get('/', (req: AuthRequest, res: Response) => {
 
 // POST /api/assignments
 router.post('/', (req: AuthRequest, res: Response) => {
-  const { documentId, userId, permissionLevel, dueDate } = req.body;
+  const { documentId, userId, userIds, assignedUsers, permissionLevel, dueDate } = req.body;
   const admin = req.user!;
 
-  if (!documentId || !userId || !permissionLevel || !dueDate) {
+  const targetIds: string[] = Array.isArray(userIds) && userIds.length > 0
+    ? userIds
+    : userId
+    ? [userId]
+    : Array.isArray(assignedUsers) && assignedUsers.length > 0
+    ? assignedUsers.map((u: any) => u.userId || u.id)
+    : [];
+
+  if (!documentId || targetIds.length === 0 || !permissionLevel || !dueDate) {
     return res.status(400).json({
       error: 'Debe especificar el documento, el usuario destinatario, el nivel de permiso y la fecha límite.',
     });
@@ -52,46 +60,54 @@ router.post('/', (req: AuthRequest, res: Response) => {
     return res.status(404).json({ error: 'Documento no encontrado.' });
   }
 
-  const targetUser = UserRepository.findById(userId);
-  if (!targetUser) {
-    return res.status(404).json({ error: 'Usuario destinatario no encontrado.' });
+  const createdList: any[] = [];
+
+  for (const uid of targetIds) {
+    const targetUser = UserRepository.findById(uid);
+    const assignedUserEntry = Array.isArray(assignedUsers)
+      ? assignedUsers.find((au: any) => (au.userId || au.id) === uid)
+      : null;
+
+    const uName = targetUser?.name || assignedUserEntry?.userName || assignedUserEntry?.name || 'Usuario';
+    const uEmail = targetUser?.email || assignedUserEntry?.userEmail || assignedUserEntry?.email || '';
+
+    const assignment = AssignmentRepository.create({
+      documentId,
+      userId: uid,
+      userName: uName,
+      userEmail: uEmail,
+      groupId: null,
+      permissionLevel,
+      status: 'pending',
+      dueDate: new Date(dueDate).toISOString(),
+      assignedBy: admin.id,
+    });
+
+    createdList.push(assignment);
   }
 
-  if (!['view', 'download', 'upload_version'].includes(permissionLevel)) {
-    return res.status(400).json({ error: 'Nivel de permiso inválido. Use view, download o upload_version.' });
-  }
-
-  const assignment = AssignmentRepository.create({
-    documentId,
-    userId,
-    userName: targetUser.name,
-    userEmail: targetUser.email,
-    groupId: null,
-    permissionLevel,
-    status: 'pending',
-    dueDate: new Date(dueDate).toISOString(),
-    assignedBy: admin.id,
-  });
+  const firstAssignment = createdList[0];
 
   AuditRepository.create({
     userId: admin.id,
     userEmail: admin.email,
     action: 'assignment_created',
     resourceType: 'assignment',
-    resourceId: assignment.id,
+    resourceId: firstAssignment?.id || 'batch',
     ipAddress: getClientIp(req),
     userAgent: getUserAgent(req),
     details: {
       documentTitle: doc.title,
-      targetUser: targetUser.email,
+      targetCount: createdList.length,
       permissionLevel,
       dueDate,
     },
   });
 
   return res.status(201).json({
-    message: `Documento asignado exitosamente a ${targetUser.name}.`,
-    assignment,
+    message: `Documento asignado exitosamente (${createdList.length} asignaciones creadas).`,
+    assignment: firstAssignment,
+    assignments: createdList,
   });
 });
 

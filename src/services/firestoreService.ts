@@ -154,13 +154,21 @@ export async function seedFirestoreDatabaseIfEmpty(force: boolean = false): Prom
       for (const u of INITIAL_USERS) {
         await setDoc(doc(db, 'usuarios', u.id), {
           id: u.id,
+          userId: u.id,
+          name: u.name,
           nombre: u.name,
+          email: u.email,
           correo: u.email,
           password: u.password || 'tocino2023',
+          role: 'admin',
           rol: 'administrador',
-          estado: u.status,
+          status: 'active',
+          estado: 'activo',
+          department: u.department,
           departamento: u.department,
+          mustChangePassword: false,
           debeCambiarContrasena: false,
+          createdAt: u.createdAt,
           fechaCreacion: u.createdAt,
         });
       }

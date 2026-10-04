@@ -18,31 +18,17 @@ if (typeof window !== 'undefined' && typeof window.fetch === 'function') {
           ? input.url
           : input.toString();
 
-      // If on GitHub Pages or if URL is an /api call
+      // Handle all /api/ calls via the live Firestore-synchronized client engine
       if (urlString.includes('/api/')) {
-        // If hosted statically on GitHub Pages, handle immediately via mock engine
-        if (window.location.hostname.includes('github.io')) {
+        try {
           const mockRes = await handleMockRequest(urlString, init);
           if (mockRes) return mockRes;
+        } catch (mockError) {
+          console.warn('[GestiónDoc] Error en motor Firestore /api:', mockError);
         }
 
-        // Otherwise attempt network fetch, and if it fails (e.g. server down / CORS / 404), fallback to mock backend
-        try {
-          const res = await originalFetch(input, init);
-          if (res.status === 404 || res.status === 502 || res.status === 503) {
-            const mockRes = await handleMockRequest(urlString, init);
-            if (mockRes) return mockRes;
-          }
-          return res;
-        } catch (networkError) {
-          console.warn(
-            '[GestiónDoc] Backend no alcanzable. Usando motor cliente en memoria/demo.',
-            networkError
-          );
-          const mockRes = await handleMockRequest(urlString, init);
-          if (mockRes) return mockRes;
-          throw networkError;
-        }
+        // Fallback to original network fetch if not handled
+        return originalFetch(input, init);
       }
 
       return originalFetch(input, init);

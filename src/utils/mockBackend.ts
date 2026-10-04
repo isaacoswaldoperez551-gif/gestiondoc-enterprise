@@ -462,13 +462,21 @@ export async function handleMockRequest(url: string, init?: RequestInit): Promis
     db.users.push(newUser);
     await syncEntityToFirestore('usuarios', newUser.id, {
       id: newUser.id,
+      userId: newUser.id,
+      name: newUser.name,
       nombre: newUser.name,
+      email: newUser.email,
       correo: newUser.email,
       password: newUser.password,
+      role: newUser.role,
       rol: newUser.role === 'admin' ? 'administrador' : newUser.role,
-      estado: newUser.status,
+      status: newUser.status,
+      estado: newUser.status === 'active' ? 'activo' : newUser.status,
+      mustChangePassword: newUser.mustChangePassword,
       debeCambiarContrasena: newUser.mustChangePassword,
+      department: newUser.department,
       departamento: newUser.department,
+      createdAt: newUser.createdAt,
       fechaCreacion: newUser.createdAt,
     });
 
@@ -1222,13 +1230,18 @@ export async function handleMockRequest(url: string, init?: RequestInit): Promis
     const doc = db.documents.find((d) => d.id === docId);
     const docTitle = doc ? doc.title : 'Documento';
 
+    const senderId = body.userId || db.currentUser?.id || 'usr_current';
+    const senderName = body.userName || db.currentUser?.name || 'Usuario';
+    const senderEmail = body.userEmail || db.currentUser?.email || '';
+    const senderRole = body.userRole || db.currentUser?.role || 'user';
+
     const newComment: CommentItem = {
       id: `com_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
       documentId: docId,
-      userId: db.currentUser?.id || 'usr_current',
-      userName: db.currentUser?.name || 'Usuario',
-      userEmail: db.currentUser?.email || '',
-      userRole: db.currentUser?.role || 'user',
+      userId: senderId,
+      userName: senderName,
+      userEmail: senderEmail,
+      userRole: senderRole,
       content: body.content,
       createdAt: new Date().toISOString(),
     };

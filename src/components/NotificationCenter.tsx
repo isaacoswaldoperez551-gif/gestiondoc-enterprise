@@ -50,6 +50,8 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
   const [selectedEmail, setSelectedEmail] = useState<NotificationItem | null>(null);
   const [toastNotif, setToastNotif] = useState<{ id: string; title: string; message: string } | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const initializedRef = useRef(false);
+  const seenNotifIdsRef = useRef<Set<string>>(new Set());
 
   const playChime = () => {
     try {
@@ -171,37 +173,40 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
         // Sort descending by creation date
         notifList.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
-        // Check for newly added items to trigger WhatsApp style toast alert & chime ONLY if for this user
-        snapshot.docChanges().forEach((change) => {
-          if (change.type === 'added') {
-            const d = change.doc.data() as any;
-            const targetUid = d.userId || d.usuarioId || '';
-            const targetEmail = (d.userEmail || d.correoUsuario || '').toLowerCase();
-            const targetRole = d.targetRole || d.rolObjetivo;
-            const senderUid = d.senderUserId || d.remitenteId || '';
+        // Handle newly arrived notifications for real-time chime & WhatsApp toast
+        if (!initializedRef.current) {
+          // Initial snapshot: mark all existing notifications as seen so we don't chime old alerts
+          snapshot.docs.forEach((doc) => seenNotifIdsRef.current.add(doc.id));
+          initializedRef.current = true;
+        } else {
+          snapshot.docChanges().forEach((change) => {
+            if (change.type === 'added' && !seenNotifIdsRef.current.has(change.doc.id)) {
+              seenNotifIdsRef.current.add(change.doc.id);
+              const d = change.doc.data() as any;
+              const targetUid = d.userId || d.usuarioId || '';
+              const targetEmail = (d.userEmail || d.correoUsuario || '').toLowerCase().trim();
+              const targetRole = d.targetRole || d.rolObjetivo;
+              const senderUid = d.senderUserId || d.remitenteId || '';
 
-            const isForMe =
-              (myId && targetUid === myId) ||
-              (myEmail && targetEmail === myEmail) ||
-              (amAdmin && (targetRole === 'admin' || targetUid === 'admin'));
+              const isForMe =
+                (myId && targetUid === myId) ||
+                (myEmail && targetEmail && targetEmail === myEmail) ||
+                (amAdmin && (targetRole === 'admin' || targetUid === 'admin'));
 
-            // Don't ring or alert the person who sent the comment
-            const isSentByMe = senderUid && myId && senderUid === myId;
+              const isSentByMe = senderUid && myId && senderUid === myId;
 
-            const createdMs = d.createdAt || d.fechaCreacion ? new Date(d.createdAt || d.fechaCreacion).getTime() : Date.now();
-            const isFresh = (Date.now() - createdMs) < 25000;
-
-            if (isForMe && !isSentByMe && isFresh) {
-              playChime();
-              setToastNotif({
-                id: change.doc.id,
-                title: d.title || d.titulo || 'Nueva Notificación',
-                message: d.message || d.mensaje || '',
-              });
-              setTimeout(() => setToastNotif(null), 5500);
+              if (isForMe && !isSentByMe) {
+                playChime();
+                setToastNotif({
+                  id: change.doc.id,
+                  title: d.title || d.titulo || 'Nueva Notificación',
+                  message: d.message || d.mensaje || '',
+                });
+                setTimeout(() => setToastNotif(null), 6000);
+              }
             }
-          }
-        });
+          });
+        }
 
         setNotifications(notifList);
         setUnreadCount(unread);

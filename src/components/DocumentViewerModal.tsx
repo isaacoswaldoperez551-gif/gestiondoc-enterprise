@@ -3,6 +3,7 @@ import { collection, onSnapshot } from 'firebase/firestore';
 import { db } from '../firebase';
 import * as XLSX from 'xlsx';
 import mammoth from 'mammoth';
+import { useAuth } from '../context/AuthContext';
 import {
   DocumentItem,
   DocumentVersion,
@@ -51,6 +52,7 @@ export const DocumentViewerModal: React.FC<DocumentViewerModalProps> = ({
   onClose,
   onVersionUploaded,
 }) => {
+  const { user } = useAuth();
   const [activeTab, setActiveTab] = useState<'view' | 'versions' | 'compare' | 'timeline' | 'comments' | 'upload'>('view');
 
   // Comments state
@@ -401,7 +403,13 @@ const DEFAULT_BLANK_DOCX_BASE64 = `UEsDBBQABgAIAAAAIQDfp2S33wEAAEEHAAATAAAAd29yZ
           'Content-Type': 'application/json',
           Authorization: `Bearer ${authToken}`,
         },
-        body: JSON.stringify({ content: text }),
+        body: JSON.stringify({
+          content: text,
+          userId: user?.id,
+          userName: user?.name,
+          userEmail: user?.email,
+          userRole: user?.role,
+        }),
       });
       if (res.ok) {
         const data = await res.json();
