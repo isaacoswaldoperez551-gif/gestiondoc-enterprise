@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { DocumentItem, User, AssignmentPermission } from '../types';
-import { X, UserPlus, Calendar, Shield, AlertCircle } from 'lucide-react';
+import { X, UserPlus, Shield, AlertCircle, Users, Check } from 'lucide-react';
 
 interface AssignDocumentModalProps {
   document: DocumentItem;
@@ -12,14 +12,17 @@ interface AssignDocumentModalProps {
 
 export const AssignDocumentModal: React.FC<AssignDocumentModalProps> = ({
   document,
-  users,
+  users: initialUsers,
   authToken,
   onClose,
   onSuccess,
 }) => {
-  const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
+  const [allUsers, setAllUsers] = useState<User[]>(initialUsers || []);
+  const [primaryUserId, setPrimaryUserId] = useState('');
+  const [assignSecondUser, setAssignSecondUser] = useState(false);
+  const [secondaryUserId, setSecondaryUserId] = useState('');
   const [permissionLevel, setPermissionLevel] = useState<AssignmentPermission>('view');
-  const [searchTerm, setSearchTerm] = useState('');
+  
   // Default due date to 7 days from now
   const defaultDue = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
     .toISOString()
@@ -28,33 +31,36 @@ export const AssignDocumentModal: React.FC<AssignDocumentModalProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  // Filter to regular active users
-  const standardUsers = users.filter((u) => u.role === 'user' && u.status === 'active');
-  const filteredUsers = standardUsers.filter(
-    (u) =>
-      u.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      u.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (u.department && u.department.toLowerCase().includes(searchTerm.toLowerCase()))
-  );
+  // Always fetch fresh users list to guarantee no user is missed or filtered out
+  useEffect(() => {
+    fetch('/api/users', { headers: { Authorization: `Bearer ${authToken}` } })
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.users && Array.isArray(data.users) && data.users.length > 0) {
+          setAllUsers(data.users);
+        }
+      })
+      .catch((err) => console.warn('AssignDocumentModal users load:', err));
+  }, [authToken]);
 
-  const toggleUser = (uid: string) => {
-    setSelectedUserIds((prev) =>
-      prev.includes(uid) ? prev.filter((id) => id !== uid) : [...prev, uid]
-    );
-  };
-
-  const handleSelectAll = () => {
-    if (selectedUserIds.length === standardUsers.length) {
-      setSelectedUserIds([]);
-    } else {
-      setSelectedUserIds(standardUsers.map((u) => u.id));
-    }
-  };
+  // Eligible users: all active users (excludes locked)
+  const eligibleUsers = allUsers.filter((u) => {
+    const status = (u.status || (u as any).estado || 'active').toLowerCase();
+    return status !== 'locked' && status !== 'bloqueado';
+  });
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (selectedUserIds.length === 0) {
+    if (!primaryUserId) {
       setError('Debe seleccionar al menos un usuario para la asignación.');
+      return;
+    }
+    if (assignSecondUser && !secondaryUserId) {
+      setError('Ha activado la opción de 2 personas. Por favor seleccione el segundo colaborador.');
+      return;
+    }
+    if (assignSecondUser && primaryUserId === secondaryUserId) {
+      setError('El segundo colaborador debe ser una persona distinta a la primera.');
       return;
     }
     if (!dueDate) {
@@ -65,6 +71,20 @@ export const AssignDocumentModal: React.FC<AssignDocumentModalProps> = ({
     setError(null);
     setLoading(true);
 
+    const userIdsToAssign = [primaryUserId];
+    if (assignSecondUser && secondaryUserId) {
+      userIdsToAssign.push(secondaryUserId);
+    }
+
+    const assignedUsersPayload = userIdsToAssign.map((uid) => {
+      const found = allUsers.find((u) => u.id === uid);
+      return {
+        userId: uid,
+        userName: found?.name || 'Usuario',
+        userEmail: found?.email || '',
+      };
+    });
+
     try {
       const res = await fetch('/api/assignments', {
         method: 'POST',
@@ -74,15 +94,8 @@ export const AssignDocumentModal: React.FC<AssignDocumentModalProps> = ({
         },
         body: JSON.stringify({
           documentId: document.id,
-          userIds: selectedUserIds,
-          assignedUsers: selectedUserIds.map((uid) => {
-            const found = standardUsers.find((u) => u.id === uid);
-            return {
-              userId: uid,
-              userName: found?.name || 'Usuario',
-              userEmail: found?.email || '',
-            };
-          }),
+          userIds: userIdsToAssign,
+          assignedUsers: assignedUsersPayload,
           permissionLevel,
           dueDate: new Date(dueDate).toISOString(),
         }),
@@ -101,6 +114,9 @@ export const AssignDocumentModal: React.FC<AssignDocumentModalProps> = ({
       setLoading(false);
     }
   };
+
+  const primaryUserObj = allUsers.find((u) => u.id === primaryUserId);
+  const secondaryUserObj = allUsers.find((u) => u.id === secondaryUserId);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4">
@@ -134,85 +150,91 @@ export const AssignDocumentModal: React.FC<AssignDocumentModalProps> = ({
         )}
 
         <form onSubmit={handleSubmit} className="p-6 space-y-4 overflow-y-auto flex-1">
-          {/* Multi-User Selection List */}
+          {/* Menu de Seleccion 1: Usuario Principal */}
           <div>
-            <div className="flex items-center justify-between mb-1.5">
-              <label className="text-xs font-semibold text-neutral-800 dark:text-neutral-200">
-                Usuarios Asignados a este Trabajo ({selectedUserIds.length} seleccionados) *
-              </label>
-              {standardUsers.length > 1 && (
-                <button
-                  type="button"
-                  onClick={handleSelectAll}
-                  className="text-[11px] text-indigo-600 dark:text-indigo-400 hover:underline cursor-pointer"
-                >
-                  {selectedUserIds.length === standardUsers.length ? 'Deseleccionar todos' : 'Seleccionar todos'}
-                </button>
-              )}
-            </div>
-
-            {standardUsers.length > 4 && (
-              <input
-                type="text"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                placeholder="Buscar usuario por nombre o correo..."
-                className="w-full mb-2 px-3 py-1.5 text-xs rounded-lg border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100 focus:outline-none focus:ring-1 focus:ring-neutral-900 dark:focus:ring-white"
-              />
-            )}
-
-            <div className="border border-neutral-200 dark:border-neutral-800 rounded-xl overflow-hidden divide-y divide-neutral-100 dark:divide-neutral-800/60 max-h-48 overflow-y-auto">
-              {filteredUsers.length === 0 ? (
-                <div className="p-4 text-center text-xs text-neutral-400">
-                  No hay usuarios activos disponibles.
-                </div>
-              ) : (
-                filteredUsers.map((u) => {
-                  const isChecked = selectedUserIds.includes(u.id);
-                  return (
-                    <label
-                      key={u.id}
-                      onClick={() => toggleUser(u.id)}
-                      className={`flex items-center justify-between p-2.5 transition cursor-pointer ${
-                        isChecked
-                          ? 'bg-indigo-50/60 dark:bg-indigo-950/30'
-                          : 'hover:bg-neutral-50 dark:hover:bg-neutral-800/50'
-                      }`}
-                    >
-                      <div className="flex items-center gap-2.5">
-                        <input
-                          type="checkbox"
-                          checked={isChecked}
-                          onChange={() => {}}
-                          className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500 border-neutral-300 dark:border-neutral-700"
-                        />
-                        <div className="w-7 h-7 rounded-full bg-neutral-800 dark:bg-neutral-200 text-white dark:text-neutral-900 font-bold text-xs flex items-center justify-center uppercase">
-                          {u.name.charAt(0)}
-                        </div>
-                        <div>
-                          <p className="text-xs font-semibold text-neutral-900 dark:text-neutral-100 leading-tight">
-                            {u.name}
-                          </p>
-                          <p className="text-[11px] text-neutral-500 font-mono">
-                            {u.email}
-                          </p>
-                        </div>
-                      </div>
-                      {u.department && (
-                        <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400">
-                          {u.department}
-                        </span>
-                      )}
-                    </label>
-                  );
-                })
-              )}
-            </div>
-            <p className="text-[11px] text-neutral-400 mt-1">
-              Puedes seleccionar 1 o 2 (o más) personas para que trabajen juntas en este documento.
-            </p>
+            <label className="block text-xs font-semibold text-neutral-800 dark:text-neutral-200 mb-1.5">
+              Usuario Asignado (Persona 1) *
+            </label>
+            <select
+              required
+              value={primaryUserId}
+              onChange={(e) => setPrimaryUserId(e.target.value)}
+              className="w-full px-3 py-2 text-sm rounded-lg border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100 focus:outline-none focus:ring-2 focus:ring-neutral-900 dark:focus:ring-white"
+            >
+              <option value="">Seleccione un usuario...</option>
+              {eligibleUsers.map((u) => (
+                <option key={u.id} value={u.id}>
+                  {u.name} ({u.email}) {u.department ? `· ${u.department}` : ''}
+                </option>
+              ))}
+            </select>
           </div>
 
+          {/* Opcion para asignar 2 personas */}
+          <div className="p-3 rounded-xl bg-neutral-50 dark:bg-neutral-800/40 border border-neutral-200 dark:border-neutral-800 space-y-2">
+            <label className="flex items-center gap-2.5 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={assignSecondUser}
+                onChange={(e) => {
+                  setAssignSecondUser(e.target.checked);
+                  if (!e.target.checked) setSecondaryUserId('');
+                }}
+                className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500 border-neutral-300 dark:border-neutral-700"
+              />
+              <span className="text-xs font-semibold text-neutral-900 dark:text-neutral-100 flex items-center gap-1.5">
+                <Users className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
+                Asignar a 2 personas (Trabajo Colaborativo en Equipo)
+              </span>
+            </label>
+
+            {assignSecondUser && (
+              <div className="pt-2 pl-6 space-y-1.5 border-t border-neutral-200/70 dark:border-neutral-800">
+                <label className="block text-xs font-medium text-neutral-700 dark:text-neutral-300">
+                  Segundo Colaborador Asignado (Persona 2) *
+                </label>
+                <select
+                  required={assignSecondUser}
+                  value={secondaryUserId}
+                  onChange={(e) => setSecondaryUserId(e.target.value)}
+                  className="w-full px-3 py-2 text-sm rounded-lg border border-indigo-300 dark:border-indigo-700 bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                >
+                  <option value="">Seleccione el segundo usuario...</option>
+                  {eligibleUsers
+                    .filter((u) => u.id !== primaryUserId)
+                    .map((u) => (
+                      <option key={u.id} value={u.id}>
+                        {u.name} ({u.email}) {u.department ? `· ${u.department}` : ''}
+                      </option>
+                    ))}
+                </select>
+                <p className="text-[11px] text-neutral-500 dark:text-neutral-400">
+                  Ambas personas recibirán la tarea en sus dispositivos y todas las notificaciones y mensajes caerán a los dos.
+                </p>
+              </div>
+            )}
+          </div>
+
+          {/* Resumen de Asignados */}
+          {primaryUserObj && (
+            <div className="p-2.5 rounded-lg bg-indigo-50/50 dark:bg-indigo-950/20 border border-indigo-100 dark:border-indigo-900/40 text-xs">
+              <span className="text-[11px] font-semibold text-indigo-800 dark:text-indigo-300 block mb-1">
+                {assignSecondUser && secondaryUserObj ? '👥 2 Personas asignadas a este trabajo:' : '👤 1 Persona asignada a este trabajo:'}
+              </span>
+              <div className="flex flex-wrap gap-1.5">
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-white dark:bg-neutral-800 text-neutral-800 dark:text-neutral-200 border border-neutral-200 dark:border-neutral-700 font-medium text-[11px]">
+                  ✓ {primaryUserObj.name} ({primaryUserObj.email})
+                </span>
+                {assignSecondUser && secondaryUserObj && (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-white dark:bg-neutral-800 text-neutral-800 dark:text-neutral-200 border border-neutral-200 dark:border-neutral-700 font-medium text-[11px]">
+                    ✓ {secondaryUserObj.name} ({secondaryUserObj.email})
+                  </span>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Permiso en Servidor */}
           <div>
             <label className="block text-xs font-medium text-neutral-700 dark:text-neutral-300 mb-1.5">
               Nivel de Permiso Asignado (Verificado estrictamente en Servidor) *
@@ -292,19 +314,18 @@ export const AssignDocumentModal: React.FC<AssignDocumentModalProps> = ({
             </div>
           </div>
 
+          {/* Fecha Limite */}
           <div>
             <label className="block text-xs font-medium text-neutral-700 dark:text-neutral-300 mb-1">
               Fecha Límite de Entrega / Cumplimiento *
             </label>
-            <div className="relative">
-              <input
-                type="date"
-                required
-                value={dueDate}
-                onChange={(e) => setDueDate(e.target.value)}
-                className="w-full px-3 py-2 text-sm rounded-lg border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100 focus:outline-none focus:ring-2 focus:ring-neutral-900 dark:focus:ring-white"
-              />
-            </div>
+            <input
+              type="date"
+              required
+              value={dueDate}
+              onChange={(e) => setDueDate(e.target.value)}
+              className="w-full px-3 py-2 text-sm rounded-lg border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100 focus:outline-none focus:ring-2 focus:ring-neutral-900 dark:focus:ring-white"
+            />
           </div>
 
           <div className="flex items-center justify-end gap-3 pt-4 border-t border-neutral-200 dark:border-neutral-800">
@@ -317,13 +338,13 @@ export const AssignDocumentModal: React.FC<AssignDocumentModalProps> = ({
             </button>
             <button
               type="submit"
-              disabled={loading || selectedUserIds.length === 0}
+              disabled={loading || !primaryUserId || (assignSecondUser && !secondaryUserId)}
               className="px-4 py-2 text-xs font-medium rounded-lg text-white bg-neutral-900 dark:bg-white dark:text-neutral-900 hover:bg-neutral-800 dark:hover:bg-neutral-100 transition disabled:opacity-50 cursor-pointer"
             >
               {loading
                 ? 'Asignando...'
-                : selectedUserIds.length > 1
-                ? `Asignar a ${selectedUserIds.length} Personas`
+                : assignSecondUser && secondaryUserId
+                ? 'Confirmar Asignación a 2 Personas'
                 : 'Confirmar Asignación'}
             </button>
           </div>
