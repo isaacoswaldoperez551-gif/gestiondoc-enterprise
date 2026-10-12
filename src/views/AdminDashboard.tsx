@@ -435,18 +435,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 </div>
               </div>
 
-              {/* Direct Firebase Console Link */}
-              <a
-                href="https://console.firebase.google.com/project/gestion-doc-c9047/firestore"
-                target="_blank"
-                rel="noreferrer"
-                title="Abrir base de datos en Firebase Console"
-                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 hover:bg-amber-100 dark:hover:bg-amber-900/60 border border-amber-200 dark:border-amber-800/60 text-xs font-semibold transition cursor-pointer shadow-2xs"
-              >
-                <Flame className="w-3.5 h-3.5 text-amber-500 fill-amber-500" />
-                <span className="hidden sm:inline">Firebase BD</span>
-                <ExternalLink className="w-3 h-3 opacity-70" />
-              </a>
             </div>
           </div>
 
